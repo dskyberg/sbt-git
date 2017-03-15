@@ -38,6 +38,8 @@ object SbtGit {
 
     // The remote repository we're using.
     val gitRemoteRepo = SettingKey[String]("git-remote-repo", "The remote git repository associated with this project")
+    // Added to satisfy our need
+    val gitLogTail = SettingKey[Option[Seq[String]]]("git-log-tail", "The last few entries from the log")
   }
 
   object GitCommand {
@@ -117,7 +119,9 @@ object SbtGit {
     gitDescribedVersion := gitReader.value.withGit(_.describedVersion).map(v => git.gitTagToVersionNumber.value(v).getOrElse(v)),
     gitCurrentTags := gitReader.value.withGit(_.currentTags),
     gitCurrentBranch := Option(gitReader.value.withGit(_.branch)).getOrElse(""),
-    gitUncommittedChanges in ThisBuild := gitReader.value.withGit(_.hasUncommittedChanges)
+    gitUncommittedChanges in ThisBuild := gitReader.value.withGit(_.hasUncommittedChanges),
+    gitRemoteRepo := gitReader.value.withGit(_.remoteOriginUrl).getOrElse(""),
+    gitLogTail := gitReader.value.withGit(_.getLogs(5))
   )
   val projectSettings = Seq(
     // Input task to run git commands directly.
@@ -184,7 +188,8 @@ object SbtGit {
 
   /** A holder of keys for simple config. */
   object git {
-    val remoteRepo = GitKeys.gitRemoteRepo
+    val remoteRepo = GitKeys.gitRemoteRepo in ThisBuild
+    val logTail = GitKeys.gitLogTail in ThisBuild
     val branch = GitKeys.gitBranch
     val runner = GitKeys.gitRunner in ThisBuild
     val gitHeadCommit = GitKeys.gitHeadCommit in ThisBuild

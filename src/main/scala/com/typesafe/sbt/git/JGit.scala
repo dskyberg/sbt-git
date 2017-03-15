@@ -9,7 +9,7 @@ import java.util.Date
 
 import org.eclipse.jgit.lib.ObjectId
 import org.eclipse.jgit.lib.Ref
-import org.eclipse.jgit.revwalk.{RevCommit, RevWalk}
+import org.eclipse.jgit.revwalk.{RevCommit, RevWalk, RevSort}
 
 import scala.util.Try
 
@@ -51,7 +51,7 @@ final class JGit(val repo: Repository) extends GitReadonlyInterface {
                 .setStartPoint(upstream).call()
     }
   }
-
+    
   def headCommit: Option[ObjectId] =
     Option(repo.resolve("HEAD"))
 
@@ -83,6 +83,9 @@ final class JGit(val repo: Repository) extends GitReadonlyInterface {
     id.getName
   }
 
+ override def remoteOriginUrl: Option[String] =
+    Try(Option(repo.getConfig.getString( "remote", "origin", "url" ))).getOrElse(None)
+
   override def describedVersion: Option[String] = Try(Option(porcelain.describe().call())).getOrElse(None)
 
   override def hasUncommittedChanges: Boolean = porcelain.status.call.hasUncommittedChanges
@@ -108,6 +111,40 @@ final class JGit(val repo: Repository) extends GitReadonlyInterface {
       format.format(new Date(millis))
     }
   }
+
+  def formatCommitTime(commit: RevCommit): String = {
+      val seconds = commit.getCommitTime.toLong
+      val millis = seconds * 1000L
+      val format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+      format.setTimeZone(commit.getCommitterIdent.getTimeZone)
+      format.format(new Date(millis))
+  }
+
+  // Mimic:
+  // [i] [abbreviated commit hash] [author date] [author name] [subject]
+  // git log -n 5 --pretty="%h %ad %an %s"
+  //    1 da1b08e Fri Dec 16 09:16:13 2016 +0000 Dale Wijnand Merge pull request #99 from bchazalet/wip/jgit-4
+  //    2 e066793 Fri Dec 16 09:15:59 2016 +0000 Dale Wijnand Merge pull request #116 from bchazalet/wip/readme-workaround-no-op
+  override def getLogs( n: Int ): Option[Seq[String]] = {
+    import scala.collection.JavaConversions._
+    Try{
+      var results = Seq[String]()
+      val commits = porcelain.log().setMaxCount(5).call().iterator.toSeq
+      var i = 1
+      for( commit <- commits) {
+        val authorIdent = commit.getAuthorIdent
+        val h = commit.abbreviate(7).name
+        val ad = formatCommitTime(commit)
+        val an = commit.getAuthorIdent.getName
+        val s = commit.getShortMessage
+
+        results = results :+ s"$i $h $ad $an $s"
+        i = i + 1
+      }
+      Option(results)
+    }.getOrElse(None) 
+  }
+
 }
 
 object JGit {

@@ -25,6 +25,10 @@ trait GitReadonlyInterface {
   def remoteBranches: Seq[String]
   /** The message of current commit **/
   def headCommitMessage: Option[String]
+  /** The value of config --get remote.origin.url **/
+  def remoteOriginUrl: Option[String]
+  /** The last 5 entries from the git log **/
+  def getLogs( n: Int ): Option[Seq[String]]
 }
 
 
